@@ -140,7 +140,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
 
     i = 0
     max_iter = 1000
-    stop_loss = 0.03
+    stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 200 == 0:
@@ -150,6 +150,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
             print(f"constraints = {problem.constraints()}")
             if l < stop_loss:
                 i = max_iter
+        i += 1
 
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
     rho = tf.cast(rho_re, c64) + 1j * tf.cast(rho_im, c64)
@@ -219,7 +220,7 @@ def reconstruct_state_cf(
 
     i = 0
     max_iter = 1000
-    stop_loss = 0.03
+    stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 200 == 0:
@@ -229,6 +230,7 @@ def reconstruct_state_cf(
             print(f"constraints = {problem.constraints()}")
             if l < stop_loss:
                 i = max_iter
+        i += 1
 
     # ----- get the reconstructed density matrix and CF
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
