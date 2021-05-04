@@ -181,6 +181,9 @@ def reconstruct_state_cf(
     A = tf.Variable(tf.random.uniform([N, N]), dtype=tf.float32, name="A")
     B = tf.Variable(tf.random.uniform([N, N]), dtype=tf.float32, name="B")
 
+    print("A device:" + str(A.device))
+    print("B device:" + str(B.device))
+
     def loss_fn():
         rho_im = B - tf.transpose(B)
         rho_re = A + tf.transpose(A)
