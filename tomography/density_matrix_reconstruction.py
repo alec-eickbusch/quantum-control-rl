@@ -176,7 +176,7 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     # disp_re, disp_im = real(disp_op), imag(disp_op)
 
     # ----- create parameterization of the density matrix
-    seed_scale = 1e-3
+    seed_scale = 1.0
     A = tf.Variable(
         tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
         dtype=tf.float32,
