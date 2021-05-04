@@ -139,8 +139,8 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
     )
 
     i = 0
-    max_iter = 2000
-    stop_loss = 1e-6
+    max_iter = 5000
+    stop_loss = 1e-7
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 100 == 0:
@@ -232,8 +232,8 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     )
 
     i = 0
-    max_iter = 2000
-    stop_loss = 1e-6
+    max_iter = 5000
+    stop_loss = 1e-7
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 100 == 0:
