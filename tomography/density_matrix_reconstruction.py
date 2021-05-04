@@ -143,7 +143,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
     stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 10 == 0:
+        if i % 50 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
@@ -236,7 +236,7 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 10 == 0:
+        if i % 50 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
