@@ -11,7 +11,7 @@ try:
 except:
     from scipy.special import factorial
 
-DTYPE = np.complex128
+DTYPE = np.complex64
 
 
 matmul = tf.linalg.matmul
@@ -59,7 +59,7 @@ def create_disp_op_tf(betas, N_large=100, N=7):
     return disp_op
 
 
-def cf(rho, betas, N_large=100):
+def cf(rho, betas):
     rho_np = rho.full()
     N = rho_np.shape[0]
     rho = tf.cast(rho_np, c64)

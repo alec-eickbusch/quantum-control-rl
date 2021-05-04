@@ -1,3 +1,4 @@
+#%%
 # -*- coding: utf-8 -*-
 """
 Created on Sat Apr 24 19:32:52 2021
@@ -15,6 +16,14 @@ import qutip as qt
 # !pip install git+https://github.com/google-research/tensorflow_constrained_optimization
 import tensorflow_constrained_optimization as tfco
 import matplotlib.pyplot as plt
+
+from scipy.special import genlaguerre
+try:
+    from scipy.misc import factorial
+except:
+    from scipy.special import factorial
+
+DTYPE = np.complex64
 
 matmul = tf.linalg.matmul
 real = tf.math.real
@@ -44,6 +53,36 @@ def create_disp_op_tf(betas, N_large=100, N=7):
     # Convert to lower-dimentional Hilbert space; shape=[N_alpha,N,N]
     disp_op = D(betas)[:, :N, :N]
     return real(disp_op), imag(disp_op)
+
+
+def disp_op_laguerre(disps, N=7):
+    dim = N
+    alphas = np.array(disps)
+    betas = np.abs(alphas) ** 2
+
+    x_mat = np.zeros((len(disps), dim, dim), dtype=DTYPE)
+
+    for m in range(dim):
+        x_mat[:, m, m] = genlaguerre(m, 0)(betas)
+        for n in range(0, m):  # scan over lower triangle, n < m
+            x_mn = (
+                np.sqrt(factorial(n) / factorial(m))
+                * (alphas) ** (m - n)
+                * genlaguerre(n, m - n)(betas)
+            )
+            x_mat[:, m, n] = x_mn
+
+        for n in range(m + 1, dim):  # scan over upper triangle, m < n
+            x_mn = (
+                np.sqrt(factorial(m) / factorial(n))
+                * (-alphas.conj()) ** (n - m)
+                * genlaguerre(m, n - m)(betas)
+            )
+            x_mat[:, m, n] = x_mn
+
+    x_mat = np.einsum("ijk,i->ijk", x_mat, np.exp(-betas / 2))
+    # x_mat = np.matrix(x_mat.reshape(len(disps), dim ** 2))
+    return x_mat  # .conj()
 
 
 # N is dimension of normalized density matrix
@@ -115,7 +154,10 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
 
 
 # characteristic function reconstruction
-def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q, N=7, N_large=100):
+def reconstruct_state_cf(
+    normalized_cf_data, betas_I, betas_Q=None, N=7
+):  # , N_large=100):
+    betas_Q = betas_I if betas_Q is None else betas_Q
     CF_flat = tf.reshape(normalized_cf_data, [-1])
 
     # ----- create displaced parity matrix
@@ -123,7 +165,9 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q, N=7, N_large=100)
     grid = tf.cast(xs_mesh + 1j * ys_mesh, c64)
     grid_flat = tf.reshape(grid, [-1])
 
-    disp_re, disp_im = create_disp_op_tf(betas=grid_flat, N_large=N_large, N=N)
+    # disp_re, disp_im = create_disp_op_tf(betas=grid_flat, N_large=N_large, N=N)
+    disp_op = disp_op_laguerre(grid_flat, N=N)
+    disp_re, disp_im = real(disp_op), imag(disp_op)
 
     # ----- create parameterization of the density matrix
     A = tf.Variable(tf.random.uniform([N, N]), dtype=tf.float32, name="A")
@@ -187,3 +231,6 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q, N=7, N_large=100)
         qt.Qobj(rho.numpy()),
         CF_re_reconstructed.numpy() + 1j * CF_im_reconstructed.numpy(),
     )
+
+
+# %%
