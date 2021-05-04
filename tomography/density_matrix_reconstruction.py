@@ -143,7 +143,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
     stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 200 == 0:
+        if i % 10 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
@@ -162,9 +162,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
 
 
 # characteristic function reconstruction
-def reconstruct_state_cf(
-    normalized_cf_data, betas_I, betas_Q=None, N=7
-):  # , N_large=100):
+def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large=100):
     betas_Q = betas_I if betas_Q is None else betas_Q
     CF_flat = tf.reshape(normalized_cf_data, [-1])
 
@@ -173,14 +171,26 @@ def reconstruct_state_cf(
     grid = tf.cast(xs_mesh + 1j * ys_mesh, c64)
     grid_flat = tf.reshape(grid, [-1])
 
-    # disp_re, disp_im = create_disp_op_tf(betas=grid_flat, N_large=N_large, N=N)
-    disp_op = disp_op_laguerre(grid_flat, N=N)
-    disp_re, disp_im = real(disp_op), imag(disp_op)
+    disp_re, disp_im = create_disp_op_tf(betas=grid_flat, N_large=N_large, N=N)
+    # disp_op = disp_op_laguerre(grid_flat, N=N)
+    # disp_re, disp_im = real(disp_op), imag(disp_op)
 
     # ----- create parameterization of the density matrix
-    A = tf.Variable(tf.random.uniform([N, N]), dtype=tf.float32, name="A")
-    B = tf.Variable(tf.random.uniform([N, N]), dtype=tf.float32, name="B")
-
+    seed_scale = 1e-3
+    A = tf.Variable(
+        tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
+        dtype=tf.float32,
+        name="A",
+    )
+    B = tf.Variable(
+        tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
+        dtype=tf.float32,
+        name="B",
+    )
+    """
+    A = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="A",)
+    B = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="B",)
+    """
     print("A device:" + str(A.device))
     print("B device:" + str(B.device))
 
@@ -226,11 +236,15 @@ def reconstruct_state_cf(
     stop_loss = 1e-5
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 200 == 0:
+        if i % 10 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
             print(f"constraints = {problem.constraints()}")
+            # print("A:")
+            # print(A)
+            # print("B:")
+            # print(B)
             if l < stop_loss:
                 i = max_iter
         i += 1
