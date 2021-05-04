@@ -18,6 +18,7 @@ import tensorflow_constrained_optimization as tfco
 import matplotlib.pyplot as plt
 
 from scipy.special import genlaguerre
+
 try:
     from scipy.misc import factorial
 except:
@@ -90,7 +91,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
     wigner_flat = tf.reshape(normalized_W_data, [-1])
     wigner_flat = tf.cast(wigner_flat, dtype=tf.float32)
     # ----- create displaced parity matrix
-    xs_mesh, ys_mesh = np.meshgrid(xs, ys, indexing="ij")
+    xs_mesh, ys_mesh = np.meshgrid(xs, ys, indexing="xy")
     grid = tf.cast(xs_mesh + 1j * ys_mesh, c64)
     grid_flat = tf.reshape(grid, [-1])
     disp_parity_re, disp_parity_im = create_displaced_parity_tf(
@@ -137,12 +138,18 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
         num_constraints=problem.num_constraints,
     )
 
-    for i in range(1000):
+    i = 0
+    max_iter = 1000
+    stop_loss = 0.03
+    while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 200 == 0:
             print(f"step = {i}")
-            print(f"loss = {loss_fn()}")
+            l = loss_fn()
+            print(f"loss = {l}")
             print(f"constraints = {problem.constraints()}")
+            if l < stop_loss:
+                i = max_iter
 
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
     rho = tf.cast(rho_re, c64) + 1j * tf.cast(rho_im, c64)
@@ -161,7 +168,7 @@ def reconstruct_state_cf(
     CF_flat = tf.reshape(normalized_cf_data, [-1])
 
     # ----- create displaced parity matrix
-    xs_mesh, ys_mesh = np.meshgrid(betas_I, betas_Q, indexing="ij")
+    xs_mesh, ys_mesh = np.meshgrid(betas_I, betas_Q, indexing="xy")
     grid = tf.cast(xs_mesh + 1j * ys_mesh, c64)
     grid_flat = tf.reshape(grid, [-1])
 
@@ -210,12 +217,18 @@ def reconstruct_state_cf(
         num_constraints=problem.num_constraints,
     )
 
-    for i in range(1000):
+    i = 0
+    max_iter = 1000
+    stop_loss = 0.03
+    while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 200 == 0:
             print(f"step = {i}")
-            print(f"loss = {loss_fn()}")
+            l = loss_fn()
+            print(f"loss = {l}")
             print(f"constraints = {problem.constraints()}")
+            if l < stop_loss:
+                i = max_iter
 
     # ----- get the reconstructed density matrix and CF
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
