@@ -237,7 +237,7 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     )
 
     i = 0
-    max_iter = 600
+    max_iter = 3000
     stop_loss = 1e-6
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
