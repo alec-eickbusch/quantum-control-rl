@@ -143,7 +143,7 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
     stop_loss = 1e-6
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 100 == 0:
+        if i % 500 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
@@ -151,6 +151,11 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
             if l < stop_loss:
                 i = max_iter
         i += 1
+    print("final:")
+    print(f"step = {i}")
+    l = loss_fn()
+    print(f"loss = {l}")
+    print(f"constraints = {problem.constraints()}")
 
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
     rho = tf.cast(rho_re, c64) + 1j * tf.cast(rho_im, c64)
@@ -190,9 +195,9 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     """
     A = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="A",)
     B = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="B",)
-    """
     print("A device:" + str(A.device))
     print("B device:" + str(B.device))
+    """
 
     def loss_fn():
         rho_im = B - tf.transpose(B)
@@ -232,11 +237,11 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     )
 
     i = 0
-    max_iter = 3000
+    max_iter = 600
     stop_loss = 1e-6
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
-        if i % 100 == 0:
+        if i % 500 == 0:
             print(f"step = {i}")
             l = loss_fn()
             print(f"loss = {l}")
@@ -248,6 +253,11 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
             if l < stop_loss:
                 i = max_iter
         i += 1
+    print("final:")
+    print(f"step = {i}")
+    l = loss_fn()
+    print(f"loss = {l}")
+    print(f"constraints = {problem.constraints()}")
 
     # ----- get the reconstructed density matrix and CF
     rho_im, rho_re = B - tf.transpose(B), A + tf.transpose(A)
