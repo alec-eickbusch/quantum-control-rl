@@ -181,7 +181,7 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     # disp_re, disp_im = real(disp_op), imag(disp_op)
 
     # ----- create parameterization of the density matrix
-    seed_scale = 1.0
+    seed_scale = 1e-2
     A = tf.Variable(
         tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
         dtype=tf.float32,
@@ -202,11 +202,18 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     def loss_fn():
         rho_im = B - tf.transpose(B)
         rho_re = A + tf.transpose(A)
+        rho = tf.cast(rho_re, dtype=c64) + tf.cast(
+            tf.constant(1j), dtype=c64
+        ) * tf.cast(rho_im, dtype=c64)
+        e, v = tf.linalg.eigh(rho)
+        tr = tf.cast(tf.math.reduce_sum(e), dtype=tf.float32)
+        tr_abs = tf.cast(tf.math.reduce_sum(tf.math.abs(e)), dtype=tf.float32)
         CF_re = trace(matmul(rho_re, disp_re) - matmul(rho_im, disp_im))
         CF_im = trace(matmul(rho_re, disp_im) + matmul(rho_im, disp_re))
         loss_re = tf.reduce_mean((real(CF_flat) - CF_re) ** 2)
         loss_im = tf.reduce_mean((imag(CF_flat) - CF_im) ** 2)
-        return loss_re + loss_im
+        loss_e = (tr - tr_abs) ** 2
+        return loss_re + loss_im + loss_e
 
     # ----- create constrainted minimization problem
     class ReconstructionMLE(tfco.ConstrainedMinimizationProblem):
