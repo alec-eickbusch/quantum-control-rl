@@ -232,7 +232,7 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     )
 
     i = 0
-    max_iter = 2000
+    max_iter = 3000
     stop_loss = 1e-6
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
@@ -263,6 +263,29 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
         qt.Qobj(rho.numpy()),
         CF_re_reconstructed.numpy() + 1j * CF_im_reconstructed.numpy(),
     )
+
+
+# The smolin method:
+# Will find closest rho which is positive semidefinite (will "fix" negative eigenvalues...)
+def smolin(rho):
+    from scipy.linalg import eigh
+
+    """ Fast method for maximum likelihood reconstruction 
+    Based on Smolin (2012) 10.1103/PhysRevLett.108.070502
+    From Phil Reinhold
+    """
+    dim = rho.shape[0]
+    e_vals, e_vecs = eigh(rho)
+    lam = e_vals.copy()
+    k = 0
+    while np.any(lam < 0):
+        d = np.argwhere(lam < 0)[-1][0]
+        a = np.sum(lam[: d + 1])
+        lam[: d + 1] = 0
+        lam[d + 1 :] += a / (dim - (d + 1))
+        k += 1
+        assert k < dim
+    return (lam * e_vecs).dot(e_vecs.conj().T)
 
 
 # %%
