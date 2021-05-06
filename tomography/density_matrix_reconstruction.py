@@ -167,7 +167,9 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
 
 
 # characteristic function reconstruction
-def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large=100):
+def reconstruct_state_cf(
+    normalized_cf_data, betas_I, betas_Q=None, rho_seed=None, N=7, N_large=100
+):
     betas_Q = betas_I if betas_Q is None else betas_Q
     CF_flat = tf.reshape(normalized_cf_data, [-1])
 
@@ -181,17 +183,21 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     # disp_re, disp_im = real(disp_op), imag(disp_op)
 
     # ----- create parameterization of the density matrix
-    seed_scale = 1e-4
-    A = tf.Variable(
-        tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
-        dtype=tf.float32,
-        name="A",
-    )
-    B = tf.Variable(
-        tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
-        dtype=tf.float32,
-        name="B",
-    )
+    if rho_seed is None:
+        seed_scale = 1e-4
+        A = tf.Variable(
+            tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
+            dtype=tf.float32,
+            name="A",
+        )
+        B = tf.Variable(
+            tf.random.uniform([N, N], minval=-1 * seed_scale, maxval=1 * seed_scale),
+            dtype=tf.float32,
+            name="B",
+        )
+    else:
+        A = tf.Variable(np.real(rho_seed.full()) / 2.0, dtype=tf.float32, name="A",)
+        B = tf.Variable(np.imag(rho_seed.full()) / 2.0, dtype=tf.float32, name="B",)
     """
     A = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="A",)
     B = tf.Variable(tf.zeros([N, N]), dtype=tf.float32, name="B",)
@@ -200,12 +206,18 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     """
 
     def loss_fn():
+        # print(B.numpy())
+        # print(A.numpy())
         rho_im = B - tf.transpose(B)
         rho_re = A + tf.transpose(A)
+        # print(rho_im.numpy())
+        # print(rho_re.numpy())
         rho = tf.cast(rho_re, dtype=c64) + tf.cast(
             tf.constant(1j), dtype=c64
         ) * tf.cast(rho_im, dtype=c64)
+        # print(rho.numpy())
         e, v = tf.linalg.eigh(rho)
+        # print(e.numpy())
         tr = tf.cast(tf.math.reduce_sum(e), dtype=tf.float32)
         tr_abs = tf.cast(tf.math.reduce_sum(tf.math.abs(e)), dtype=tf.float32)
         CF_re = trace(matmul(rho_re, disp_re) - matmul(rho_im, disp_im))
@@ -239,12 +251,13 @@ def reconstruct_state_cf(normalized_cf_data, betas_I, betas_Q=None, N=7, N_large
     problem = ReconstructionMLE(loss_fn, [A, B])
 
     optimizer = tfco.LagrangianOptimizer(
-        optimizer=tf.optimizers.Adam(learning_rate=0.2),
+        optimizer=tf.optimizers.Adam(learning_rate=0.1),
         num_constraints=problem.num_constraints,
     )
 
     i = 0
     max_iter = 10000
+    # max_iter = 0
     stop_loss = 1e-6
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
