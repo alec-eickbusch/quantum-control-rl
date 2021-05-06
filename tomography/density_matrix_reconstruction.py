@@ -255,6 +255,11 @@ def reconstruct_state_cf(
         num_constraints=problem.num_constraints,
     )
 
+    print("initial:")
+    print(f"step = {i}")
+    l = loss_fn()
+    print(f"loss = {l}")
+    print(f"constraints = {problem.constraints()}")
     i = 0
     max_iter = 30000
     # max_iter = 0
