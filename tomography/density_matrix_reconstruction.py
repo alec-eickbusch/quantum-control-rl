@@ -251,12 +251,12 @@ def reconstruct_state_cf(
     problem = ReconstructionMLE(loss_fn, [A, B])
 
     optimizer = tfco.LagrangianOptimizer(
-        optimizer=tf.optimizers.Adam(learning_rate=0.1),
+        optimizer=tf.optimizers.Adam(learning_rate=0.025),
         num_constraints=problem.num_constraints,
     )
 
     i = 0
-    max_iter = 10000
+    max_iter = 30000
     # max_iter = 0
     stop_loss = 1e-6
     while i < max_iter:
