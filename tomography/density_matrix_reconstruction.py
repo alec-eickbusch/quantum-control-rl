@@ -256,7 +256,6 @@ def reconstruct_state_cf(
     )
 
     print("initial:")
-    print(f"step = {i}")
     l = loss_fn()
     print(f"loss = {l}")
     print(f"constraints = {problem.constraints()}")
