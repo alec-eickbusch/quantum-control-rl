@@ -1,0 +1,136 @@
+import tensorflow as tf
+from numpy import pi, sqrt
+from tensorflow import complex64 as c64
+from simulator.utils import measurement, tensor
+from .base import HilbertSpace
+from simulator import operators as ops
+
+# simulator class for oscillator with dispersive coupling to a qubit
+# simulated in the displaced frame of the oscillator
+class DisplacedOscillatorQubit(HilbertSpace):
+    """
+    Define all relevant operators as tensorflow tensors of shape [2N,2N].
+    We adopt the notation in which qt.basis(2,0) is a qubit ground state.
+    Methods need to take care of batch dimension explicitly.
+
+    Initialize tensorflow quantum trajectory simulator.
+    """
+
+    def __init__(
+        self, *args, chi, alpha=1.0, kappa=0, gamma_1=0, gamma_phi=0, N=100, **kwargs
+    ):
+        """
+        Args:
+            chi (float): dispersive coupling (GRad/s).
+            kappa (float): energy relaxation rate of oscillator (GRad/s).
+            gamma_1 (float): energy relaxation rate of qubit (GRad/s).
+            gamma_phi (float): dephasing rate of qubit (GRad/s).
+            N (int, optional): Size of oscillator Hilbert space.
+        """
+        self._N = N
+        self._chi = chi
+        self._kappa = kappa
+        self._gamma_1 = gamma_1
+        self._gamma_phi = gamma_phi
+        self._alpha = alpha
+
+        super().__init__(self, *args, **kwargs)
+
+    def _define_fixed_operators(self):
+        N = self.N
+        self.I = tensor([ops.identity(2), ops.identity(N)])
+        self.a = tensor([ops.identity(2), ops.destroy(N)])
+        self.a_dag = tensor([ops.identity(2), ops.create(N)])
+        self.q = tensor([ops.identity(2), ops.position(N)])
+        self.p = tensor([ops.identity(2), ops.momentum(N)])
+        self.n = tensor([ops.identity(2), ops.num(N)])
+
+        self.sx = tensor([ops.sigma_x(), ops.identity(N)])
+        self.sy = tensor([ops.sigma_y(), ops.identity(N)])
+        self.sz = tensor([ops.sigma_z(), ops.identity(N)])
+        self.sm = tensor([ops.sigma_m(), ops.identity(N)])
+
+        tensor_with = [ops.identity(2), None]
+        self.phase = ops.Phase()
+        self.translate = ops.TranslationOperator(N, tensor_with=tensor_with)
+        self.displace = lambda a: self.translate(sqrt(2) * a)
+        self.rotate = ops.RotationOperator(N, tensor_with=tensor_with)
+
+        tensor_with = [None, ops.identity(N)]
+        self.rotate_qb_xy = ops.QubitRotationXY(tensor_with=tensor_with)
+        self.rotate_qb_z = ops.QubitRotationZ(tensor_with=tensor_with)
+        self.rxp = self.rotate_qb_xy(tf.constant(pi / 2), tf.constant(0))
+        self.rxm = self.rotate_qb_xy(tf.constant(-pi / 2), tf.constant(0))
+
+        # qubit sigma_z measurement projector
+        self.P = {i: tensor([ops.projector(i, 2), ops.identity(N)]) for i in [0, 1]}
+
+        self.sx_selective = tensor([ops.sigma_x(), ops.projector(0, N)]) + tensor(
+            [ops.identity(2), ops.identity(N) - ops.projector(0, N)]
+        )
+
+    @property
+    def _hamiltonian(self):
+        # for now, we will assume a static alpha cd hamiltonian, ignoring all other terms
+        # later, will include time-dependence in alpha.
+        cd = self._chi * self._alpha * (self.a + self.a_dag) @ (self.sz / 2.0)
+        return cd
+
+    @property
+    def _collapse_operators(self):
+        photon_loss = tf.cast(tf.sqrt(self._kappa), dtype=tf.complex64) * self.a
+        qubit_decay = tf.cast(tf.sqrt(self._gamma_1), dtype=tf.complex64) * self.sm
+        qubit_dephasing = (
+            tf.cast(tf.sqrt(self._gamma_phi / 2.0), dtype=tf.complex64) * self.sz
+        )
+
+        return [photon_loss, qubit_decay, qubit_dephasing]
+
+    @tf.function
+    def ctrl(self, U0, U1):
+        """
+        Batch controlled-U gate. Apply 'U0' if qubit is '0', and 'U1' if
+        qubit is '1'.
+
+        Input:
+            U0 -- unitary on the oscillator subspace written in the combined
+                  qubit-oscillator Hilbert space; shape=[batch_size,2N,2N]
+            U1 -- same as above
+
+        """
+        return self.P[0] @ U0 + self.P[1] @ U1
+
+    @tf.function  # TODO: add losses in phase estimation?
+    def phase_estimation(self, psi, U, angle, sample=False):
+        """
+        One round of phase estimation.
+
+        Input:
+            psi -- batch of state vectors; shape=[batch_size,2N]
+            U -- unitary on which to do phase estimation. shape=(batch_size,N,N)
+            angle -- angle along which to measure qubit. shape=(batch_size,)
+            sample -- bool flag to sample or return expectation value
+
+        Output:
+            psi -- batch of collapsed states if sample==True, otherwise same
+                   as input psi; shape=[batch_size,2N]
+            z -- batch of measurement outcomes if sample==True, otherwise
+                 batch of expectation values of qubit sigma_z.
+
+        """
+        CT = self.ctrl(self.I, U)
+        Phase = self.rotate_qb_z(tf.squeeze(angle))
+
+        psi = tf.linalg.matvec(self.hadamard, psi)
+        psi = tf.linalg.matvec(CT, psi)
+        psi = tf.linalg.matvec(Phase, psi)
+        psi = tf.linalg.matvec(self.hadamard, psi)
+        return measurement(psi, self.P, sample)
+
+    @property
+    def N(self):
+        return self._N
+
+    @property
+    def tensorstate(self):
+        return True
