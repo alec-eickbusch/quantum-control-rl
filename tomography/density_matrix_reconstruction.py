@@ -243,8 +243,9 @@ def reconstruct_state_cf(
         def constraints(self):
             A, B = self._weights
             # it works with inequality constraints
-            trace_le_1 = trace(A + tf.transpose(A)) - 1
-            trace_gr_1 = 1 - trace(A + tf.transpose(A))
+            # adding more weight to these constraints
+            trace_le_1 = 1000*(trace(A + tf.transpose(A)) - 1)
+            trace_gr_1 = 1000*(1 - trace(A + tf.transpose(A)))
             constraints = tf.stack([trace_le_1, trace_gr_1])
             return constraints
 
@@ -262,7 +263,7 @@ def reconstruct_state_cf(
     i = 0
     max_iter = 30000
     # max_iter = 0
-    stop_loss = 5e-6
+    stop_loss = 1e-8
     while i < max_iter:
         optimizer.minimize(problem, var_list=[A, B])
         if i % 500 == 0:
