@@ -1,7 +1,7 @@
 import tensorflow as tf
 from numpy import pi, sqrt
 from tensorflow import complex64 as c64
-from simulator.utils import measurement, tensor
+from simulator.utils import measurement, tensor, expectation
 from .base import HilbertSpace
 from simulator import operators as ops
 
@@ -17,7 +17,16 @@ class DisplacedOscillatorQubit(HilbertSpace):
     """
 
     def __init__(
-        self, *args, chi, alpha=1.0, kappa=0, gamma_1=0, gamma_phi=0, N=100, **kwargs
+        self,
+        *args,
+        chi,
+        alpha=1.0,
+        kappa=0,
+        gamma_1=0,
+        gamma_phi=0,
+        N=20,
+        N_large=100,
+        **kwargs
     ):
         """
         Args:
@@ -28,6 +37,7 @@ class DisplacedOscillatorQubit(HilbertSpace):
             N (int, optional): Size of oscillator Hilbert space.
         """
         self._N = N
+        self._N_large = N_large
         self._chi = chi
         self._kappa = kappa
         self._gamma_1 = gamma_1
@@ -38,12 +48,14 @@ class DisplacedOscillatorQubit(HilbertSpace):
 
     def _define_fixed_operators(self):
         N = self.N
+        N_large = self._N_large
         self.I = tensor([ops.identity(2), ops.identity(N)])
         self.a = tensor([ops.identity(2), ops.destroy(N)])
         self.a_dag = tensor([ops.identity(2), ops.create(N)])
         self.q = tensor([ops.identity(2), ops.position(N)])
         self.p = tensor([ops.identity(2), ops.momentum(N)])
         self.n = tensor([ops.identity(2), ops.num(N)])
+        self.parity = tensor([ops.identity(2), ops.parity(N)])
 
         self.sx = tensor([ops.sigma_x(), ops.identity(N)])
         self.sy = tensor([ops.sigma_y(), ops.identity(N)])
@@ -55,6 +67,16 @@ class DisplacedOscillatorQubit(HilbertSpace):
         self.translate = ops.TranslationOperator(N, tensor_with=tensor_with)
         self.displace = lambda a: self.translate(sqrt(2) * a)
         self.rotate = ops.RotationOperator(N, tensor_with=tensor_with)
+
+        # displacement operators with larger intermediate hilbert space used for tomography
+        self.translate_large = lambda a: tensor(
+            [ops.identity(2), ops.TranslationOperator(N_large)(a)[:, :N, :N]]
+        )
+        self.displace_large = lambda a: self.translate_large(sqrt(2) * a)
+        self.displaced_parity_large = lambda a: tf.linalg.matmul(
+            tf.linalg.matmul(self.displace_large(a), self.parity),
+            self.displace_large(-a),
+        )
 
         tensor_with = [None, ops.identity(N)]
         self.rotate_qb_xy = ops.QubitRotationXY(tensor_with=tensor_with)
@@ -78,13 +100,20 @@ class DisplacedOscillatorQubit(HilbertSpace):
 
     @property
     def _collapse_operators(self):
-        photon_loss = tf.cast(tf.sqrt(self._kappa), dtype=tf.complex64) * self.a
-        qubit_decay = tf.cast(tf.sqrt(self._gamma_1), dtype=tf.complex64) * self.sm
-        qubit_dephasing = (
-            tf.cast(tf.sqrt(self._gamma_phi / 2.0), dtype=tf.complex64) * self.sz
-        )
+        ops = []
+        if self._kappa > 0:
+            photon_loss = tf.cast(tf.sqrt(self._kappa), dtype=tf.complex64) * self.a
+            ops.append(photon_loss)
+        if self._gamma_1 > 0:
+            qubit_decay = tf.cast(tf.sqrt(self._gamma_1), dtype=tf.complex64) * self.sm
+            ops.append(qubit_decay)
+        if self._gamma_phi > 0:
+            qubit_dephasing = (
+                tf.cast(tf.sqrt(self._gamma_phi / 2.0), dtype=tf.complex64) * self.sz
+            )
+            ops.append(qubit_dephasing)
 
-        return [photon_loss, qubit_decay, qubit_dephasing]
+        return ops
 
     @tf.function
     def ctrl(self, U0, U1):
@@ -126,6 +155,14 @@ class DisplacedOscillatorQubit(HilbertSpace):
         psi = tf.linalg.matvec(Phase, psi)
         psi = tf.linalg.matvec(self.hadamard, psi)
         return measurement(psi, self.P, sample)
+
+    # @tf.function
+    def wigner(self, psi, alphas):
+        alphas_flat = tf.reshape(alphas, [-1])
+        # create parity ops with N large, then truncate to N.
+        parity_ops = self.displaced_parity_large(alphas_flat)
+        W = expectation(psi, parity_ops, reduce_batch=False)
+        return tf.reshape(W, alphas.shape)
 
     @property
     def N(self):
