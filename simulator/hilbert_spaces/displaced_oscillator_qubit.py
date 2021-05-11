@@ -1,7 +1,7 @@
 import tensorflow as tf
 from numpy import pi, sqrt
 from tensorflow import complex64 as c64
-from simulator.utils import measurement, tensor, expectation
+from simulator.utils import measurement, tensor, expectation, batch_expect
 from .base import HilbertSpace
 from simulator import operators as ops
 
@@ -156,12 +156,20 @@ class DisplacedOscillatorQubit(HilbertSpace):
         psi = tf.linalg.matvec(self.hadamard, psi)
         return measurement(psi, self.P, sample)
 
-    # @tf.function
+    @tf.function
     def wigner(self, psi, alphas):
         alphas_flat = tf.reshape(alphas, [-1])
         # create parity ops with N large, then truncate to N.
         parity_ops = self.displaced_parity_large(alphas_flat)
         W = expectation(psi, parity_ops, reduce_batch=False)
+        return tf.reshape(W, alphas.shape)
+
+    @tf.function
+    def wigner_batch(self, psi_batch, alphas):
+        alphas_flat = tf.reshape(alphas, [-1])
+        # create parity ops with N large, then truncate to N.
+        parity_ops = self.displaced_parity_large(alphas_flat)
+        W = batch_expect(psi_batch, parity_ops)
         return tf.reshape(W, alphas.shape)
 
     @property

@@ -140,10 +140,6 @@ def expectation(state, operator, reduce_batch=True):
            of states and returns a single expectation value of shape [].
     """
     state, _ = normalize(state)
-    print(state.shape)
-    print(operator.shape)
-    intermediate = tf.linalg.matvec(operator, state)
-    print(intermediate.shape)
     expect_batch = batch_dot(state, tf.linalg.matvec(operator, state))
 
     if reduce_batch:
@@ -162,3 +158,28 @@ def tensor(operators):
     tensor_prod = tf.linalg.LinearOperatorKronecker(operators).to_dense()
     return tensor_prod
 
+
+# functions added by Alec. Will add documentation.
+# takes a batch of states and returns a density matrix
+def density_matrix(psi_batch):
+    norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
+    return norm * tf.einsum("ki,kj->ij", psi_batch, tf.math.conj(psi_batch))
+
+
+def single_expect(psi, O):
+    return tf.einsum("j,ji,i->", tf.math.conj(psi), O, psi)
+
+
+def batch_psi_expect(psi_batch, O):
+    norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
+    return norm * tf.einsum("ki,ij,kj", tf.math.conj(psi_batch), O, psi_batch)
+
+
+def batch_expect(psi_batch, O_batch):
+    norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
+    return norm * tf.einsum("ki,bij,kj->b", tf.math.conj(psi_batch), O_batch, psi_batch)
+
+
+def copy_state_to_batch(state, batch_size):
+    s = tf.tile(state, [batch_size])
+    return tf.reshape(s, [batch_size, state.shape[0]])
