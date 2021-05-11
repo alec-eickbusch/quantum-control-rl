@@ -60,7 +60,8 @@ def create_disp_op_tf(betas, N_large=100, N=7):
 
 
 # charasteristic function from qutip density matrix
-"""
+
+
 def cf_rho_qt(rho, betas, N_large=100):
     rho_np = rho.full()
     N = rho_np.shape[0]
@@ -73,7 +74,7 @@ def cf_rho_qt(rho, betas, N_large=100):
     CF = trace(matmul(rho, disp_op))
     return tf.reshape(CF, betas.shape).numpy()
 
-"""
+
 # charasteristic function from tensorflow
 # can take
 def cf_rho_tf(rho, betas, N_large=100):
