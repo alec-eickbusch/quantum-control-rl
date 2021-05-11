@@ -35,7 +35,7 @@ def basis(n, N, batch_shape=[1]):
         basis(2,100,batch_shape=[]) -- unbatched oscillator Fock=2 state.
         basis(0,2,batch_shape=[10]) -- batch of 10 qubit 'g' states.
     """
-    return tf.ones(batch_shape+[1], c64) * tf.one_hot(n, N, dtype=c64)
+    return tf.ones(batch_shape + [1], c64) * tf.one_hot(n, N, dtype=c64)
 
 
 def Kronecker_product(states):
@@ -58,7 +58,7 @@ def Kronecker_product(states):
         psi = Kronecker_product([g, fock5]) # state in combined Hilbert space
     """
     # expand dims to trick the tf.linalg.LinearOperatorKronecker
-    states = [tf.expand_dims(s,-1) for s in states]
+    states = [tf.expand_dims(s, -1) for s in states]
     operators = list(map(tf.linalg.LinearOperatorFullMatrix, states))
     tensor_state = tf.linalg.LinearOperatorKronecker(operators).to_dense()
     return tf.squeeze(tensor_state, axis=-1)
@@ -81,20 +81,20 @@ def measurement(state, M_ops, sample=True):
     """
     collapsed, p = {}, {}
     state, _ = normalize(state)
-    
+
     for i in M_ops.keys():
         collapsed[i] = tf.linalg.matvec(M_ops[i], state)
         collapsed[i], norm = normalize(collapsed[i])
-        p[i] = tf.math.real(norm)**2
+        p[i] = tf.math.real(norm) ** 2
 
     if sample:
-        obs = tfp.distributions.Bernoulli(probs=p[1]/(p[0]+p[1])).sample()
-        state = tf.where(obs==1, collapsed[1], collapsed[0])
+        obs = tfp.distributions.Bernoulli(probs=p[1] / (p[0] + p[1])).sample()
+        state = tf.where(obs == 1, collapsed[1], collapsed[0])
         obs = 1 - 2 * obs  # convert to {-1,1}
         obs = tf.cast(obs, dtype=tf.float32)
         return state, obs
     else:
-        return state, (p[0]-p[1])/(p[0]+p[1])
+        return state, (p[0] - p[1]) / (p[0] + p[1])
 
 
 @tf.function
@@ -110,7 +110,7 @@ def batch_dot(state1, state2):
     return tf.math.reduce_sum(tf.math.conj(state1) * state2, axis=-1, keepdims=True)
 
 
-@tf.function
+# @tf.function
 def expectation(state, operator, reduce_batch=True):
     """
     Expectation value of <operator> in <state>.
@@ -140,15 +140,20 @@ def expectation(state, operator, reduce_batch=True):
            of states and returns a single expectation value of shape [].
     """
     state, _ = normalize(state)
-    expect_batch = batch_dot(state, tf.linalg.matvec(operator,state))
+    print(state.shape)
+    print(operator.shape)
+    intermediate = tf.linalg.matvec(operator, state)
+    print(intermediate.shape)
+    expect_batch = batch_dot(state, tf.linalg.matvec(operator, state))
 
-    if reduce_batch: 
+    if reduce_batch:
         expect_batch_reduced = tf.math.reduce_mean(expect_batch)
         return expect_batch_reduced
 
     return expect_batch
 
-#TODO: this is very memory-inefficient, write a custom kronecker product
+
+# TODO: this is very memory-inefficient, write a custom kronecker product
 def tensor(operators):
     """
     Tensor product of operators acting on different Hilbert spaces.
@@ -156,5 +161,4 @@ def tensor(operators):
     operators = list(map(tf.linalg.LinearOperatorFullMatrix, operators))
     tensor_prod = tf.linalg.LinearOperatorKronecker(operators).to_dense()
     return tensor_prod
-    
-    
+

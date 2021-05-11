@@ -168,7 +168,13 @@ def reconstruct_state_wigner(normalized_W_data, alphas_I, alphas_Q, N=7, N_large
 
 # characteristic function reconstruction
 def reconstruct_state_cf(
-    normalized_cf_data, betas_I, betas_Q=None, rho_seed=None, N=7, N_large=100
+    normalized_cf_data,
+    betas_I,
+    betas_Q=None,
+    rho_seed=None,
+    N=7,
+    N_large=100,
+    psd_condition=True,
 ):
     betas_Q = betas_I if betas_Q is None else betas_Q
     CF_flat = tf.reshape(normalized_cf_data, [-1])
@@ -206,25 +212,22 @@ def reconstruct_state_cf(
     """
 
     def loss_fn():
-        # print(B.numpy())
-        # print(A.numpy())
         rho_im = B - tf.transpose(B)
         rho_re = A + tf.transpose(A)
-        # print(rho_im.numpy())
-        # print(rho_re.numpy())
         rho = tf.cast(rho_re, dtype=c64) + tf.cast(
             tf.constant(1j), dtype=c64
         ) * tf.cast(rho_im, dtype=c64)
-        # print(rho.numpy())
-        e, v = tf.linalg.eigh(rho)
-        # print(e.numpy())
-        tr = tf.cast(tf.math.reduce_sum(e), dtype=tf.float32)
-        tr_abs = tf.cast(tf.math.reduce_sum(tf.math.abs(e)), dtype=tf.float32)
+        if psd_condition:
+            e, v = tf.linalg.eigh(rho)
+            tr = tf.cast(tf.math.reduce_sum(e), dtype=tf.float32)
+            tr_abs = tf.cast(tf.math.reduce_sum(tf.math.abs(e)), dtype=tf.float32)
+            loss_e = (tr - tr_abs) ** 2
+        else:
+            loss_e = 0
         CF_re = trace(matmul(rho_re, disp_re) - matmul(rho_im, disp_im))
         CF_im = trace(matmul(rho_re, disp_im) + matmul(rho_im, disp_re))
         loss_re = tf.reduce_mean((real(CF_flat) - CF_re) ** 2)
         loss_im = tf.reduce_mean((imag(CF_flat) - CF_im) ** 2)
-        loss_e = (tr - tr_abs) ** 2
         return loss_re + loss_im + loss_e
 
     # ----- create constrainted minimization problem

@@ -59,7 +59,9 @@ def create_disp_op_tf(betas, N_large=100, N=7):
     return disp_op
 
 
-def cf(rho, betas, N_large=100):
+# charasteristic function from qutip density matrix
+"""
+def cf_rho_qt(rho, betas, N_large=100):
     rho_np = rho.full()
     N = rho_np.shape[0]
     rho = tf.cast(rho_np, c64)
@@ -68,6 +70,18 @@ def cf(rho, betas, N_large=100):
     disp_op = create_disp_op_tf(betas_flat, N_large=N_large, N=N)
     # disp_op = tf.cast(disp_op_laguerre(betas_flat, N=N), c64)
 
+    CF = trace(matmul(rho, disp_op))
+    return tf.reshape(CF, betas.shape).numpy()
+
+"""
+# charasteristic function from tensorflow
+# can take
+def cf_rho_tf(rho, betas, N_large=100):
+    N = rho.shape[-1]
+    rho = tf.cast(rho_np, c64)
+    betas = tf.cast(betas, c64)
+    betas_flat = tf.reshape(betas, [-1])
+    disp_op = create_disp_op_tf(betas_flat, N_large=N_large, N=N)
     CF = trace(matmul(rho, disp_op))
     return tf.reshape(CF, betas.shape).numpy()
 
