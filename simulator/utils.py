@@ -159,27 +159,31 @@ def tensor(operators):
     return tensor_prod
 
 
-# functions added by Alec. Will add documentation.
+# utility functions added by Alec. Will add documentation soon.
 # takes a batch of states and returns a density matrix
 def density_matrix(psi_batch):
     norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
     return norm * tf.einsum("ki,kj->ij", psi_batch, tf.math.conj(psi_batch))
 
 
-def single_expect(psi, O):
+# basic expectation value
+def expect(psi, O):
     return tf.einsum("j,ji,i->", tf.math.conj(psi), O, psi)
 
 
+# Average expectation value of a batch of states
 def batch_psi_expect(psi_batch, O):
     norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
     return norm * tf.einsum("ki,ij,kj", tf.math.conj(psi_batch), O, psi_batch)
 
 
+# batch of operators and batch of states --> average expectation value for each operator
 def batch_expect(psi_batch, O_batch):
     norm = tf.constant((1 / psi_batch.shape[0]), dtype=tf.complex64)
     return norm * tf.einsum("ki,bij,kj->b", tf.math.conj(psi_batch), O_batch, psi_batch)
 
 
+# Take single state and create batch of states for use in MC simulation.
 def copy_state_to_batch(state, batch_size):
     s = tf.tile(state, [batch_size])
     return tf.reshape(s, [batch_size, state.shape[0]])
